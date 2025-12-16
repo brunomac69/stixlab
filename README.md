@@ -20,7 +20,7 @@ A ferramenta também permite criar **bundles STIX**, adicionar múltiplos objeto
 
 ## 📸 Screenshot
 
-![STIX 2.1 Helper – Interface](images/screenshot.png)
+![STIX 2.1 Helper – Interface](images/Screenshot.png)
 
 > Exemplo da interface gráfica da aplicação STIX 2.1 Helper em execução.
 
