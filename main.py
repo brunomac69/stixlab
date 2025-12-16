@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from stix2validator import validate_instance
 from tkinter import StringVar, messagebox, filedialog
 from datetime import datetime
 from datetime import datetime, timezone
@@ -13,7 +14,7 @@ ctk.set_default_color_theme("blue")
 # =========================
 
 def now():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 def gen_id(t):
     return f"{t}--{uuid.uuid4()}"
@@ -47,9 +48,12 @@ def default_value(field: str, obj_type: str):
     # listas comuns
     if field.endswith("_refs") or field in ("object_refs", "where_sighted_refs"):
         return []
-    if field in ("aliases", "roles", "sectors", "tool_types", "malware_types", "infrastructure_types",
+    if field in ("roles", "sectors", "tool_types", "malware_types", "infrastructure_types",
                  "protocols", "threat_actor_types"):
         return []
+    
+    if field == "aliases":
+        return ["alias-exemplo"]
     
     if field == "kill_chain_phases":
         return [
@@ -487,7 +491,7 @@ def view_bundle():
 
     win = ctk.CTkToplevel(app)
     win.title("Bundle atual (JSON)")
-    win.geometry("900x600")
+    win.geometry("1000x600")
 
     # Garante que fica sempre à frente
     win.attributes("-topmost", True)
@@ -504,6 +508,113 @@ def view_bundle():
     # Apenas leitura
     txt.configure(state="enabled")
 
+def _format_validation_result(result) -> str:
+    """
+    Converte o output do stix2-validator para texto legível,
+    independentemente da versão.
+    """
+
+    # Caso 1: objeto ValidationResults
+    if hasattr(result, "is_valid"):
+        valid = result.is_valid
+        errors = getattr(result, "errors", [])
+        warnings = getattr(result, "warnings", [])
+
+    # Caso 2: dicionário
+    elif isinstance(result, dict):
+        valid = result.get("valid")
+        errors = result.get("errors", [])
+        warnings = result.get("warnings", [])
+
+    # Caso 3: formato desconhecido
+    else:
+        return f"ℹ️ Resultado de validação recebido:\n{result}"
+
+    lines = []
+
+    if valid is True:
+        lines.append("✅ STIX válido (sem erros).")
+    elif valid is False:
+        lines.append("❌ STIX inválido.")
+    else:
+        lines.append("ℹ️ Validação executada.")
+
+    if errors:
+        lines.append("\nErros:")
+        for i, e in enumerate(errors, 1):
+            if hasattr(e, "message"):
+                lines.append(f"  {i}. {e.message}")
+            elif isinstance(e, dict):
+                lines.append(f"  {i}. {e.get('message', str(e))}")
+            else:
+                lines.append(f"  {i}. {e}")
+
+    if warnings:
+        lines.append("\nAvisos:")
+        for i, w in enumerate(warnings, 1):
+            if hasattr(w, "message"):
+                lines.append(f"  {i}. {w.message}")
+            elif isinstance(w, dict):
+                lines.append(f"  {i}. {w.get('message', str(w))}")
+            else:
+                lines.append(f"  {i}. {w}")
+
+    return "\n".join(lines)
+
+
+def validate_current_object():
+    raw = mandatory_text.get("1.0", "end").strip()
+    if not raw:
+        messagebox.showwarning("Validar", "Não há JSON no painel do objeto.")
+        return
+
+    try:
+        instance = json.loads(raw)
+    except json.JSONDecodeError as e:
+        messagebox.showerror("JSON inválido", f"O JSON não é válido:\n\n{e}")
+        return
+
+    # valida STIX 2.1 (o validator detecta pelo spec_version quando aplicável)
+    result = validate_instance(instance)
+    messagebox.showinfo("Validação STIX (Objeto)", _format_validation_result(result))
+
+
+def validate_bundle():
+    if not bundle.get("objects"):
+        messagebox.showinfo("Validar", "O bundle está vazio.")
+        return
+
+    result = validate_instance(bundle)
+    messagebox.showinfo("Validação STIX (Bundle)", _format_validation_result(result))
+
+def validate_external_file():
+    path = filedialog.askopenfilename(
+        title="Selecionar ficheiro STIX (.json)",
+        filetypes=[("STIX JSON", "*.json"), ("JSON", "*.json")]
+    )
+    if not path:
+        return
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        messagebox.showerror("Erro", f"Falha ao abrir ficheiro:\n{e}")
+        return
+
+    try:
+        result = validate_instance(data)
+    except Exception as e:
+        messagebox.showerror("Erro", f"Falha ao validar STIX:\n{e}")
+        return
+
+    mandatory_text.delete("1.0", "end")
+    mandatory_text.insert("end", json.dumps(data, indent=4, ensure_ascii=False))
+
+    messagebox.showinfo(
+        "Validação STIX (Ficheiro Externo)",
+        _format_validation_result(result)
+)
 
 # =========================
 # UI layout
@@ -573,9 +684,15 @@ optional_text.pack(fill="both", expand=True, padx=5, pady=5)
 bottom_frame = ctk.CTkFrame(app)
 bottom_frame.pack(fill="x", padx=20, pady=10)
 
-ctk.CTkButton(bottom_frame, text="Criar Bundle (novo)", command=create_new_bundle).pack(side="left", padx=10)
-ctk.CTkButton(bottom_frame, text="Adicionar ao Bundle", command=add_to_bundle).pack(side="left", padx=10)
-ctk.CTkButton(bottom_frame, text="Ver Bundle", command=view_bundle).pack(side="left", padx=10)
-ctk.CTkButton(bottom_frame, text="Exportar Bundle JSON", command=export_bundle_json).pack(side="left", padx=10)
+ctk.CTkButton(bottom_frame, text="Criar Bundle (novo)", command=create_new_bundle).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Adicionar ao Bundle", command=add_to_bundle).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Ver Bundle", command=view_bundle).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Exportar Bundle JSON", command=export_bundle_json).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Validar Objeto", command=validate_current_object).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Validar Bundle", command=validate_bundle).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Validar STIX Externo", command=validate_external_file).pack(side="left", padx=15)
 
 app.mainloop()
+
+
+#Compilar o executavel para a pasta /dist com --> pyinstaller STIX_2.1_Helper.spec
