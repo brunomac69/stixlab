@@ -502,7 +502,7 @@ def view_bundle():
     )
 
     # Apenas leitura
-    txt.configure(state="disabled")
+    txt.configure(state="enabled")
 
 
 # =========================

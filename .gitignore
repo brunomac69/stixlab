@@ -3,6 +3,7 @@ venv/
 .venv/
 env/
 ENV/
+build/
 
 # Ficheiros gerados pelo Python
 __pycache__/
