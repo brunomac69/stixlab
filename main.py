@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from stix2validator import validate_instance
 from tkinter import StringVar, messagebox, filedialog
 from datetime import datetime, timezone
 import uuid
@@ -12,7 +13,7 @@ ctk.set_default_color_theme("blue")
 # =========================
 
 def now():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 def gen_id(t):
     return f"{t}--{uuid.uuid4()}"
@@ -46,9 +47,12 @@ def default_value(field: str, obj_type: str):
     # listas comuns
     if field.endswith("_refs") or field in ("object_refs", "where_sighted_refs"):
         return []
-    if field in ("aliases", "roles", "sectors", "tool_types", "malware_types", "infrastructure_types",
+    if field in ("roles", "sectors", "tool_types", "malware_types", "infrastructure_types",
                  "protocols", "threat_actor_types"):
         return []
+    
+    if field == "aliases":
+        return ["alias-exemplo"]
     
     if field == "kill_chain_phases":
         return [
@@ -486,7 +490,7 @@ def view_bundle():
 
     win = ctk.CTkToplevel(app)
     win.title("Bundle atual (JSON)")
-    win.geometry("900x600")
+    win.geometry("1000x600")
 
     # Garante que fica sempre à frente
     win.attributes("-topmost", True)
@@ -572,9 +576,15 @@ optional_text.pack(fill="both", expand=True, padx=5, pady=5)
 bottom_frame = ctk.CTkFrame(app)
 bottom_frame.pack(fill="x", padx=20, pady=10)
 
-ctk.CTkButton(bottom_frame, text="Criar Bundle (novo)", command=create_new_bundle).pack(side="left", padx=10)
-ctk.CTkButton(bottom_frame, text="Adicionar ao Bundle", command=add_to_bundle).pack(side="left", padx=10)
-ctk.CTkButton(bottom_frame, text="Ver Bundle", command=view_bundle).pack(side="left", padx=10)
-ctk.CTkButton(bottom_frame, text="Exportar Bundle JSON", command=export_bundle_json).pack(side="left", padx=10)
+ctk.CTkButton(bottom_frame, text="Criar Bundle (novo)", command=create_new_bundle).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Adicionar ao Bundle", command=add_to_bundle).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Ver Bundle", command=view_bundle).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Exportar Bundle JSON", command=export_bundle_json).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Validar Objeto", command=validate_current_object).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Validar Bundle", command=validate_bundle).pack(side="left", padx=5)
+ctk.CTkButton(bottom_frame, text="Validar STIX Externo", command=validate_external_file).pack(side="left", padx=15)
 
 app.mainloop()
+
+
+#Compilar o executavel para a pasta /dist com --> pyinstaller STIX_2.1_Helper.spec
