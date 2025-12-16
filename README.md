@@ -17,6 +17,8 @@ O objetivo é permitir a formandos e analistas compreender facilmente a estrutur
 A ferramenta também permite criar **bundles STIX**, adicionar múltiplos objetos e exportar o resultado final para um ficheiro JSON compatível.
 
 ---
+## Build executavel
+Build Executavel disponivel em (dist/STIX_2.1_Helper.exe)
 
 ## 📸 Screenshot
 
@@ -51,6 +53,7 @@ A ferramenta também permite criar **bundles STIX**, adicionar múltiplos objeto
 - Código facilmente extensível para novos tipos de objetos STIX.
 
 ---
+
 
 ## 🇵🇹 Pré-requisitos
 
