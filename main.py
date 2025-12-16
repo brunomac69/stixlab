@@ -1,6 +1,5 @@
 import customtkinter as ctk
 from tkinter import StringVar, messagebox, filedialog
-from datetime import datetime
 from datetime import datetime, timezone
 import uuid
 import json
@@ -142,7 +141,7 @@ def default_value(field: str, obj_type: str):
         if field == "product":
             return "Nome do produto/engine"
         if field == "objective":
-            return "Eg. Steal Sensiive intellectual information and exfiltrate"
+            return "Eg. Steal Sensitive intellectual information and exfiltrate"
         return ""
     
 
@@ -502,8 +501,8 @@ def view_bundle():
     )
 
     # Apenas leitura
-    txt.configure(state="enabled")
-
+    #txt.configure(state="enabled")
+    txt.configure(state="disabled")
 
 # =========================
 # UI layout
