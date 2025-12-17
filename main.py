@@ -505,8 +505,115 @@ def view_bundle():
     )
 
     # Apenas leitura
-    #txt.configure(state="enabled")
-    txt.configure(state="disabled")
+    txt.configure(state="enabled")
+
+def _format_validation_result(result) -> str:
+    """
+    Converte o output do stix2-validator para texto legível,
+    independentemente da versão.
+    """
+
+    # Caso 1: objeto ValidationResults
+    if hasattr(result, "is_valid"):
+        valid = result.is_valid
+        errors = getattr(result, "errors", [])
+        warnings = getattr(result, "warnings", [])
+
+    # Caso 2: dicionário
+    elif isinstance(result, dict):
+        valid = result.get("valid")
+        errors = result.get("errors", [])
+        warnings = result.get("warnings", [])
+
+    # Caso 3: formato desconhecido
+    else:
+        return f"ℹ️ Resultado de validação recebido:\n{result}"
+
+    lines = []
+
+    if valid is True:
+        lines.append("✅ STIX válido (sem erros).")
+    elif valid is False:
+        lines.append("❌ STIX inválido.")
+    else:
+        lines.append("ℹ️ Validação executada.")
+
+    if errors:
+        lines.append("\nErros:")
+        for i, e in enumerate(errors, 1):
+            if hasattr(e, "message"):
+                lines.append(f"  {i}. {e.message}")
+            elif isinstance(e, dict):
+                lines.append(f"  {i}. {e.get('message', str(e))}")
+            else:
+                lines.append(f"  {i}. {e}")
+
+    if warnings:
+        lines.append("\nAvisos:")
+        for i, w in enumerate(warnings, 1):
+            if hasattr(w, "message"):
+                lines.append(f"  {i}. {w.message}")
+            elif isinstance(w, dict):
+                lines.append(f"  {i}. {w.get('message', str(w))}")
+            else:
+                lines.append(f"  {i}. {w}")
+
+    return "\n".join(lines)
+
+
+def validate_current_object():
+    raw = mandatory_text.get("1.0", "end").strip()
+    if not raw:
+        messagebox.showwarning("Validar", "Não há JSON no painel do objeto.")
+        return
+
+    try:
+        instance = json.loads(raw)
+    except json.JSONDecodeError as e:
+        messagebox.showerror("JSON inválido", f"O JSON não é válido:\n\n{e}")
+        return
+
+    # valida STIX 2.1 (o validator detecta pelo spec_version quando aplicável)
+    result = validate_instance(instance)
+    messagebox.showinfo("Validação STIX (Objeto)", _format_validation_result(result))
+
+
+def validate_bundle():
+    if not bundle.get("objects"):
+        messagebox.showinfo("Validar", "O bundle está vazio.")
+        return
+
+    result = validate_instance(bundle)
+    messagebox.showinfo("Validação STIX (Bundle)", _format_validation_result(result))
+
+def validate_external_file():
+    path = filedialog.askopenfilename(
+        title="Selecionar ficheiro STIX (.json)",
+        filetypes=[("STIX JSON", "*.json"), ("JSON", "*.json")]
+    )
+    if not path:
+        return
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        messagebox.showerror("Erro", f"Falha ao abrir ficheiro:\n{e}")
+        return
+
+    try:
+        result = validate_instance(data)
+    except Exception as e:
+        messagebox.showerror("Erro", f"Falha ao validar STIX:\n{e}")
+        return
+
+    mandatory_text.delete("1.0", "end")
+    mandatory_text.insert("end", json.dumps(data, indent=4, ensure_ascii=False))
+
+    messagebox.showinfo(
+        "Validação STIX (Ficheiro Externo)",
+        _format_validation_result(result)
+)
 
 # =========================
 # UI layout
