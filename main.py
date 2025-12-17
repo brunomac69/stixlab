@@ -1,7 +1,6 @@
 import customtkinter as ctk
 from stix2validator import validate_instance
 from tkinter import StringVar, messagebox, filedialog
-from datetime import datetime
 from datetime import datetime, timezone
 import uuid
 import json
@@ -146,7 +145,7 @@ def default_value(field: str, obj_type: str):
         if field == "product":
             return "Nome do produto/engine"
         if field == "objective":
-            return "Eg. Steal Sensiive intellectual information and exfiltrate"
+            return "Eg. Steal Sensitive intellectual information and exfiltrate"
         return ""
     
 
