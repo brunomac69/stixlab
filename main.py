@@ -1,6 +1,6 @@
 import webbrowser
 import customtkinter as ctk
-from stix2validator import validate_instance
+from stix2validator import validate_instance,  validate_string
 from tkinter import StringVar, messagebox, filedialog
 from datetime import datetime, timezone
 import uuid
@@ -8,6 +8,8 @@ import json
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
+
+current_observed_data = None
 
 # =========================
 # Utilitários
@@ -442,19 +444,20 @@ STIX_OBJECTS = {
         }
     },
 
-    "SCO": {
-        "ipv4-addr": {"mandatory":["type","value"],"optional":["resolves_to_refs"]},
+   "SCO": {
+        "ipv4-addr": {"mandatory":["type","value"],"optional":[]},
         "ipv6-addr": {"mandatory":["type","value"],"optional":[]},
-        "domain-name": {"mandatory":["type","value"],"optional":[]},
-        "url": {"mandatory":["type","value"],"optional":[]},
+        "domain-name": {"mandatory":["type","value"],"optional":["resolves_to_refs"]},
+        "url": {"mandatory":["type","value"],"optional":["resolves_to_refs"]},
         "email-addr": {"mandatory":["type","value"],"optional":[]},
         "mac-addr": {"mandatory":["type","value"],"optional":[]},
         "mutex": {"mandatory":["type","value"],"optional":[]},
         "file": {"mandatory":["type"],"optional":["name","size","hashes","mime_type"]},
-        "process": {"mandatory":["type"],"optional":["pid","name","command_line"]},
+        "process": {"mandatory":["type"],"optional":["pid","command_line","image_ref"]},
         "user-account": {"mandatory":["type","account_login"],"optional":["account_type"]},
         "network-traffic": {"mandatory":["type","protocols"],"optional":["src_ref","dst_ref","src_port","dst_port"]}
-    }
+}
+
 }
 
 # =========================
@@ -471,13 +474,39 @@ bundle = {
 # UI actions
 # =========================
 
+def gen_empty_observed_data():
+    now_ts = now()
+    return {
+        "type": "observed-data",
+        "spec_version": "2.1",
+        "id": gen_id("observed-data"),
+        "created": now_ts,
+        "modified": now_ts,
+        "first_observed": now_ts,
+        "last_observed": now_ts,
+        "number_observed": 1,
+        "objects": {}
+    }
+
+def is_sco(obj_type):
+    return obj_type in STIX_OBJECTS["SCO"]
+
 def update_object_types(*_):
+    global current_observed_data
+
     category_label = category_var.get()
     category = CATEGORY_LABELS[category_label]
 
     object_combo.configure(values=list(STIX_OBJECTS[category].keys()))
     object_var.set("")
     clear_fields()
+
+    if category == "SCO":
+        current_observed_data = gen_empty_observed_data()
+        mandatory_text.insert(
+            "end",
+            json.dumps(current_observed_data, indent=4, ensure_ascii=False)
+        )
 
 def clear_fields():
     mandatory_text.delete("1.0", "end")
@@ -492,19 +521,33 @@ def build_full_template(category: str, obj_type: str):
     return obj, fields["optional"]
 
 def show_templates(*_):
+    global current_observed_data
+
     clear_fields()
     category = CATEGORY_LABELS[category_var.get()]
     obj_type = object_var.get()
     if not obj_type:
         return
 
+    # --- CASO SCO ---
+    if category == "SCO":
+        sco, _ = build_full_template(category, obj_type)
+
+        idx = str(len(current_observed_data["objects"]))
+        current_observed_data["objects"][idx] = sco
+
+        mandatory_text.insert(
+            "end",
+            json.dumps(current_observed_data, indent=4, ensure_ascii=False)
+        )
+        optional_text.insert("end", "(SCO adicionado ao observed-data)")
+        return
+
+    # --- CASO SDO / SRO (igual ao actual) ---
     obj, optional_list = build_full_template(category, obj_type)
-
-    # Coluna esquerda: JSON pronto a copiar (aspas incluídas via json.dumps)
     mandatory_text.insert("end", json.dumps(obj, indent=4, ensure_ascii=False))
-
-    # Coluna direita: lista de opcionais (referência)
     optional_text.insert("end", "\n".join(optional_list) if optional_list else "(sem opcionais)")
+
 
 def create_new_bundle():
     global bundle
@@ -516,24 +559,34 @@ def create_new_bundle():
     messagebox.showinfo("Bundle", "Novo bundle criado (vazio).")
 
 def add_to_bundle():
+    global current_observed_data
+
     raw = mandatory_text.get("1.0", "end").strip()
     if not raw:
-        messagebox.showerror("Erro", "O JSON do objeto está vazio.")
+        messagebox.showerror("Erro", "O JSON está vazio.")
         return
 
     try:
         obj = json.loads(raw)
     except json.JSONDecodeError as e:
-        messagebox.showerror("JSON inválido", f"Corrige o JSON antes de adicionar ao bundle.\n\n{e}")
+        messagebox.showerror("JSON inválido", str(e))
         return
 
-    # mínimo essencial: type
-    if not isinstance(obj, dict) or "type" not in obj:
-        messagebox.showerror("Erro", "O JSON tem de ser um objeto (dict) e conter pelo menos o campo \"type\".")
+    # Caso SCO → adicionar observed-data
+    if obj.get("type") == "observed-data":
+        if not obj.get("objects"):
+            messagebox.showwarning("Observed-data", "Não há SCOs dentro do observed-data.")
+            return
+
+        bundle["objects"].append(obj)
+        current_observed_data = None
+        messagebox.showinfo("Bundle", "Observed-data adicionado ao bundle.")
         return
 
+    # Caso normal (SDO / SRO)
     bundle["objects"].append(obj)
-    messagebox.showinfo("Bundle", f"Objeto adicionado. Total no bundle: {len(bundle['objects'])}")
+    messagebox.showinfo("Bundle", f"Objeto adicionado. Total: {len(bundle['objects'])}")
+
 
 def export_bundle_json():
     if not bundle["objects"]:
@@ -557,6 +610,15 @@ def export_bundle_json():
 
     messagebox.showinfo("Exportar", "Bundle exportado com sucesso.")
 
+
+def copy_text_to_clipboard(text: str):
+    app.clipboard_clear()
+    app.clipboard_append(text)
+    app.update()  # garante que fica no clipboard
+
+def open_stix_visualizer_site():
+    webbrowser.open("https://oasis-open.github.io/cti-stix-visualization/")
+
 def view_bundle():
     if not bundle["objects"]:
         messagebox.showinfo("Bundle", "O bundle está vazio.")
@@ -566,10 +628,19 @@ def view_bundle():
     win.title("Bundle atual (JSON)")
     win.geometry("1000x600")
 
-    # Garante que fica sempre à frente
-    win.attributes("-topmost", True)
+    win.transient(app)
+    win.lift()
     win.focus_force()
 
+    # ----- Barra de topo -----
+    top = ctk.CTkFrame(win)
+    top.pack(fill="x", padx=10, pady=5)
+
+    # Label de estado (CRIADO AQUI)
+    status_label = ctk.CTkLabel(top,text="", text_color="green")
+    status_label.pack(side="right", padx=10)
+
+    # ----- Textbox com o JSON (CRIADO ANTES da função copy) -----
     txt = ctk.CTkTextbox(win)
     txt.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -577,9 +648,28 @@ def view_bundle():
         "end",
         json.dumps(bundle, indent=4, ensure_ascii=False)
     )
+    txt.configure(state="normal")
 
-    # Apenas leitura
-    txt.configure(state="enabled")
+    # ----- Função de copiar (DEPOIS de status_label e txt existirem) -----
+    def copy_bundle():
+        text = txt.get("1.0", "end").strip()
+        copy_text_to_clipboard(text)
+        status_label.configure(text="✔ Texto copiado para o clipboard")
+
+        # limpar mensagem após 3 segundos
+        win.after(3000, lambda: status_label.configure(text=""))
+
+    # Botões
+    ctk.CTkButton(top, text="📋 Copiar tudo", command=copy_bundle, width=150).pack(side="left", padx=5)
+
+    ctk.CTkButton(
+        top,
+        text="🌐 STIX Visualizer",
+        command=open_stix_visualizer_site,
+        width=150
+    ).pack(side="left", padx=5)
+
+
 
 def _format_validation_result(result) -> str:
     """
@@ -644,12 +734,34 @@ def validate_current_object():
     try:
         instance = json.loads(raw)
     except json.JSONDecodeError as e:
-        messagebox.showerror("JSON inválido", f"O JSON não é válido:\n\n{e}")
+        messagebox.showerror("JSON inválido", str(e))
         return
 
-    # valida STIX 2.1 (o validator detecta pelo spec_version quando aplicável)
-    result = validate_instance(instance)
-    messagebox.showinfo("Validação STIX (Objeto)", _format_validation_result(result))
+    try:
+        # Caso observed-data → embrulhar em bundle
+        if instance.get("type") == "observed-data":
+            if not instance.get("objects"):
+                messagebox.showwarning("Observed-data","O observed-data não contém SCOs.")
+                return
+
+            temp_bundle = {
+                "type": "bundle",
+                "id": f"bundle--{uuid.uuid4()}",
+                "objects": [instance]
+            }
+            result = validate_instance(temp_bundle)
+        else:
+            result = validate_instance(instance)
+
+    except Exception as e:
+        messagebox.showerror(
+            "Erro de validação STIX",
+            f"O validador falhou:\n\n{e}"
+        )
+        return
+
+    messagebox.showinfo("Validação STIX",_format_validation_result(result)
+    )
 
 
 def validate_bundle():
@@ -657,14 +769,38 @@ def validate_bundle():
         messagebox.showinfo("Validar", "O bundle está vazio.")
         return
 
-    result = validate_instance(bundle)
-    messagebox.showinfo("Validação STIX (Bundle)", _format_validation_result(result))
+    try:
+        # 1️⃣ tentativa normal (validação semântica completa)
+        result = validate_instance(bundle)
+
+    except Exception as e:
+        # 2️⃣ fallback para validação textual (bug do validator)
+        try:
+            bundle_str = json.dumps(bundle, ensure_ascii=False)
+            result = validate_string(bundle_str)
+
+            messagebox.showinfo("Validação STIX (Bundle)","⚠️ Validação feita em modo compatibilidade "
+                "(bug conhecido do stix2-validator).\n\n"+ _format_validation_result(result)
+            )
+            return
+
+        except Exception as e2:
+            messagebox.showerror(
+                "Erro de validação STIX",
+                f"O validador falhou internamente.\n\n"
+                f"Erro 1: {e}\nErro 2: {e2}"
+            )
+            return
+
+    # caminho normal (sem erro)
+    messagebox.showinfo(
+        "Validação STIX (Bundle)",
+        _format_validation_result(result)
+    )
+
 
 def validate_external_file():
-    path = filedialog.askopenfilename(
-        title="Selecionar ficheiro STIX (.json)",
-        filetypes=[("STIX JSON", "*.json"), ("JSON", "*.json")]
-    )
+    path = filedialog.askopenfilename(title="Selecionar ficheiro STIX (.json)", filetypes=[("STIX JSON", "*.json"), ("JSON", "*.json")])
     if not path:
         return
 
@@ -684,13 +820,7 @@ def validate_external_file():
     mandatory_text.delete("1.0", "end")
     mandatory_text.insert("end", json.dumps(data, indent=4, ensure_ascii=False))
 
-    messagebox.showinfo(
-        "Validação STIX (Ficheiro Externo)",
-        _format_validation_result(result)
-)
-    
-def open_stix_visualizer_site():
-    webbrowser.open("https://oasis-open.github.io/cti-stix-visualization/")
+    messagebox.showinfo("Validação STIX (Ficheiro Externo)",_format_validation_result(result))
 
 # =========================
 # UI layout
@@ -726,7 +856,7 @@ object_combo = ctk.CTkComboBox(
 object_combo.pack(side="left", padx=10)
 
 #Abrir site STIX Visualizer
-ctk.CTkButton(top_frame, text="STIX Visualizer",command=open_stix_visualizer_site).pack(side="left", padx=5)
+ctk.CTkButton(top_frame, text="🌐 STIX Visualizer",command=open_stix_visualizer_site).pack(side="left", padx=5)
 
 # ---- Tema (Dark / Light) ----
 #ctk.CTkLabel(top_frame, text="Tema").pack(side="right", padx=(5, 5))
