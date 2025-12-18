@@ -44,12 +44,64 @@ def default_value(field: str, obj_type: str):
     if field in ("created", "modified", "published", "valid_from", "first_observed", "last_observed"):
         return now()
 
-    # listas comuns
-    if field.endswith("_refs") or field in ("object_refs", "where_sighted_refs"):
-        return []
-    if field in ("roles", "sectors", "tool_types", "malware_types", "infrastructure_types",
-                 "protocols", "threat_actor_types"):
-        return []
+    # object_refs (caso especial – didático)
+    if field == "object_refs":
+        return [
+            "indicator-----UUID",
+            "attack-pattern-----UUID",
+            "....."
+        ]
+
+    # listas comuns de referências (*_refs)
+    if field.endswith("_refs") or field in ("where_sighted_refs",):
+        return [
+            "indicator-----UUID",
+            "malware-----UUID",
+            "...."
+        ]
+    
+    if field == "identity_class":
+        return "organization  # opções: individual, group, organization, class, unknown"
+
+    if field == "roles":
+        return [
+            "agent",
+            "Opções::agent,director,infrastructure-architect,malware-author,sponsor"
+        ]
+
+    if field == "sectors":
+        return [
+            "government",
+            "Opções::aerospace,automotive,chemical,commercial,communications,construction,defense,education,energy,entertainment,financial-services,government,healthcare,hospitality-leisure,infrastructure,insurance,manufacturing,mining,non-profit,pharmaceuticals,retail,technology,telecommunications,transportation,utilities"
+        ]
+
+    if field == "tool_types":
+        return [
+            "remote-access","credential-exploitation",
+            "Opções::credential-exploitation,denial-of-service,exploitation,information-gathering,network-capture,remote-access,vulnerability-scanning"
+        ]
+
+    if field == "malware_types":
+        return [
+            "ransomware","backdoor","keylogger","dropper",
+            "Opções::adware,bot,bootkit,credential-harvesting,downloader,exploit-kit,keylogger,ransomware,remote-access-trojan,rootkit,screen-capture,spyware,trojan,virus,worm"
+        ]
+
+    if field == "infrastructure_types":
+        return [
+            "command-and-control","botnet",
+            "Opções::anonymization,botnet,command-and-control,hosting-malware,hosting-target-lists,phishing,reconnaissance,staging,victim-identification"
+        ]
+
+    if field == "protocols":
+        return [
+            "tcp","udp",
+            "Opções::tcp,udp,icmp,http,https,ftp,smtp,dns"
+        ]
+
+    if field == "threat_actor_types":
+        # threat actor types (STIX 2.1 – VOCABULÁRIO OFICIAL)
+        return ["activist","Opções::competitor,crime-syndicate,criminal,hacker,insider-accidental,insider-disgruntled,nation-state,sensationalist,spy,terrorist"]
     
     if field == "aliases":
         return ["alias-exemplo"]
@@ -149,26 +201,44 @@ def default_value(field: str, obj_type: str):
         return ""
     
 
-    if field in ("goals", "secondary_motivations", "capabilities"):
-        return []
+    if field == "goals":
+        return [
+            "organizational-gain","ideology",
+            "Opções::accidental,coercion,dominance,ideology,notoriety,organizational-gain,personal-gain"
+        ]   
+
+    if field == "secondary_motivations":
+        return [
+            "ideology",
+            "Opções::accidental,coercion,dominance,ideology,notoriety,organizational-gain,personal-gain,revenge,unpredictable"
+        ]
+
+    if field == "capabilities":
+        return ["low","medium","high","advanced","expert"]
 
     if field == "resource_level":
-        return "organization"
+        return "organization  # opções: individual, club, contest, team, organization, government"
 
     if field == "primary_motivation":
-        return "espionage"
+        return "organizational-gain  # opções: accidental, coercion, dominance, ideology, notoriety, organizational-gain, personal-gain, revenge, unpredictable"
 
     if field in ("first_seen", "last_seen"):
         return now()
 
     if field == "report_types":
-        return ["threat-report"]
-
+        return [
+            "malware",
+            "Opções::attack-pattern,campaign,identity,indicator,malware,observed-data,threat-actor,tool,vulnerability"
+        ]
+    
     if field == "labels":
         return ["espionage", "ransomware", "etc..."]
-
+    
     if field == "confidence":
         return 50
+    
+    if field == "context":
+        return "suspicious-activity # opções: , malware-analysis, incident, threat-report, campaign, investigation, other"
 
     return placeholder_str()
 
@@ -212,7 +282,7 @@ STIX_OBJECTS = {
             "optional": ["description"]
         },
         "grouping": {
-            "mandatory": ["type","spec_version","id","created","modified","name","object_refs"],
+            "mandatory": ["type","spec_version","id","created","modified","name","context","object_refs"],
             "optional": ["description","confidence"]
         },
         "identity": {
