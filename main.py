@@ -5,6 +5,10 @@ from tkinter import StringVar, messagebox, filedialog
 from datetime import datetime, timezone
 import uuid
 import json
+import sys
+import argparse
+import networkx as nx
+import matplotlib.pyplot as plt
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -891,8 +895,166 @@ def validate_external_file():
     messagebox.showinfo("Validação STIX (Ficheiro Externo)",_format_validation_result(result))
 
 # =========================
+# CLI Argument Parsing
+# =========================
+
+def generate_stix_image(file_path):
+    """
+    Gera uma imagem (grafo) a partir de um ficheiro STIX e guarda como PNG.
+    """
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"❌ Erro ao ler ficheiro: {e}")
+        return
+
+    objects = []
+    if data.get("type") == "bundle":
+        objects = data.get("objects", [])
+    elif isinstance(data, list):
+        # Lista solta de objetos
+        objects = data
+    elif isinstance(data, dict) and "type" in data:
+        # Objeto único
+        objects = [data]
+    else:
+        print("❌ Formato STIX não reconhecido (esperava-se bundle, lista ou objeto).")
+        return
+
+    if not objects:
+        print("⚠️ Nenhum objeto para visualizar.")
+        return
+
+    # Criar Grafo
+    G = nx.DiGraph()
+
+    # Mapa de ID -> Objeto (para labels mais bonitas)
+    id_map = {}
+
+    # 1. Adicionar Nós
+    for obj in objects:
+        obj_id = obj.get("id")
+        obj_type = obj.get("type")
+        name = obj.get("name", obj_type) # Fallback se não tiver name
+        
+        if obj_id:
+            id_map[obj_id] = obj # Guarda referência
+            # Label: quebra linha para não ficar muito comprido
+            label = f"{obj_type}\n{name}"
+            G.add_node(obj_id, label=label, type=obj_type)
+
+    # 2. Adicionar Arestas (Relationships e Refs)
+    for obj in objects:
+        src_id = obj.get("id")
+        if not src_id:
+            continue
+
+        # Se for SRO Relationship
+        if obj.get("type") == "relationship":
+            s_ref = obj.get("source_ref")
+            t_ref = obj.get("target_ref")
+            rel_type = obj.get("relationship_type", "related-to")
+            
+            if s_ref and t_ref:
+                # Adiciona nós se não existirem (pode ligar a objetos fora do bundle)
+                if not G.has_node(s_ref): G.add_node(s_ref, label=s_ref[-5:], type="external")
+                if not G.has_node(t_ref): G.add_node(t_ref, label=t_ref[-5:], type="external")
+                
+                G.add_edge(s_ref, t_ref, label=rel_type)
+
+        # Outros objetos com refs (ex: report -> object_refs)
+        # Verifica campos comuns que contêm refs
+        for field, propery_val in obj.items():
+            if field.endswith("_ref") and isinstance(propery_val, str):
+                # single ref
+                target = propery_val
+                if target:
+                    if not G.has_node(target): G.add_node(target, label=target[-5:], type="external")
+                    G.add_edge(src_id, target, label=field) # label é o nome do campo ex: created_by_ref
+            
+            elif field.endswith("_refs") and isinstance(propery_val, list):
+                # list refs
+                for target in propery_val:
+                    if target:
+                        if not G.has_node(target): G.add_node(target, label=target[-5:], type="external")
+                        G.add_edge(src_id, target, label=field)
+
+    if G.number_of_nodes() == 0:
+        print("⚠️ Grafo vazio. Nada a desenhar.")
+        return
+
+    pos = nx.spring_layout(G, k=0.5) # Layout de força
+    
+    plt.figure(figsize=(12, 8))
+    
+    # Desenha nós
+    nx.draw_networkx_nodes(G, pos, node_size=3000, node_color="skyblue", alpha=0.9)
+    
+    # Desenha arestas
+    nx.draw_networkx_edges(G, pos, arrowstyle="->", arrowsize=20, width=2, edge_color="gray")
+    
+    # Desenha labels dos nós
+    node_labels = nx.get_node_attributes(G, 'label')
+    nx.draw_networkx_labels(G, pos, labels=node_labels, font_size=8, font_family="sans-serif")
+
+    # Desenha labels das arestas
+    edge_labels = nx.get_edge_attributes(G, 'label')
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8)
+
+    plt.title(f"Visualização STIX: {file_path}")
+    plt.axis("off")
+
+    output_file = file_path + ".png"
+    plt.savefig(output_file)
+    print(f"✅ Imagem gerada com sucesso: {output_file}")
+    
+    # Opcional: mostrar (bloqueia CLI se não fechar) - apenas salvar é melhor para automação
+    # plt.show()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="STIX 2.1 Helper & Validator")
+    parser.add_argument("-v", "--validate", metavar="FILE", help="Validar um ficheiro STIX (.json) e sair")
+    parser.add_argument("-i", "--image", metavar="FILE", help="Gerar imagem (PNG) do grafo STIX e sair")
+    return parser.parse_args()
+
+# =========================
 # UI layout
 # =========================
+
+if __name__ == "__main__":
+    args = parse_args()
+
+    if args.image:
+        print(f"🖼️ A gerar imagem para: {args.image} ...")
+        generate_stix_image(args.image)
+        sys.exit(0)
+
+    if args.validate:
+        # Modo CLI: Valida e sai
+        print(f"Validando ficheiro: {args.validate} ...\n")
+        try:
+            with open(args.validate, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            # Reutiliza a lógica de formatação existente, mas imprime na consola
+            # validation_instance vem do stix2validator
+            result = validate_instance(data)
+            print(_format_validation_result(result))
+            
+        except FileNotFoundError:
+            print(f"❌ Erro: Ficheiro não encontrado: {args.validate}")
+        except json.JSONDecodeError as e:
+            print(f"❌ Erro: JSON inválido:\n{e}")
+        except Exception as e:
+            print(f"❌ Erro inesperado: {e}")
+        
+        # Encerra sem abrir a GUI
+        sys.exit(0)
+
+    # Modo GUI (comportamento normal se não houver argumentos de CLI)
+
 
 app = ctk.CTk()
 app.title("STIX 2.1 Helper – Ensino (JSON pronto a copiar) - C-Academy - Curso PMD#1 - Bruno Cardoso (open-source)")
