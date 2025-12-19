@@ -255,7 +255,7 @@ def default_value(field: str, obj_type: str):
 # mas para ensino isto já cobre a esmagadora maioria dos casos e é estável.
 
 STIX_OBJECTS = {
-    "SDO": {
+   "SDO": {
         "attack-pattern": {
             "mandatory": [
                 "type", "spec_version", "id", "created", "modified",
@@ -266,9 +266,11 @@ STIX_OBJECTS = {
                 "aliases",
                 "kill_chain_phases",
                 "confidence",
-                "labels"
+                "labels",
+                "\n\n__HELP__\nO Attack Pattern descreve uma técnica ou método usado para comprometer um alvo. Modela o 'como' do ataque.\n\nRelações comuns:\n• Threat Actor → uses → Attack Pattern\n• Malware → uses → Attack Pattern\n• Intrusion Set → uses → Attack Pattern\n\nExemplo:\nThreat Actor → uses → Attack Pattern (Phishing)"
             ]
         },
+
         "campaign": {
             "mandatory": [
                 "type", "spec_version", "id", "created", "modified",
@@ -280,21 +282,39 @@ STIX_OBJECTS = {
                 "last_seen",
                 "objective",
                 "confidence",
-                "labels"
+                "labels",
+                "\n\n__HELP__\nCampaign representa um conjunto coordenado de atividades maliciosas com um objetivo específico ao longo do tempo.\n\nRelações comuns:\n• Threat Actor → attributed-to → Campaign\n• Campaign → uses → Malware\n• Campaign → targets → Identity / Infrastructure\n\nExemplo:\nCampaign → uses → Malware (Ransomware)"
             ]
         },
+
         "course-of-action": {
             "mandatory": ["type","spec_version","id","created","modified","name"],
-            "optional": ["description"]
+            "optional": [
+                "description",
+                "\n\n__HELP__\nCourse of Action descreve medidas de mitigação ou resposta.\n\nRelações comuns:\n• Course of Action → mitigates → Attack Pattern\n• Course of Action → mitigates → Malware\n\nExemplo:\nCourse of Action (Bloquear IPs) → mitigates → Brute Force"
+            ]
         },
+
         "grouping": {
             "mandatory": ["type","spec_version","id","created","modified","name","context","object_refs"],
-            "optional": ["description","confidence"]
+            "optional": [
+                "description",
+                "confidence",
+                "\n\n__HELP__\nGrouping é usado para agrupar objetos STIX relacionados num contexto específico (incidente, investigação, caso forense).\n\nNão representa uma entidade real, apenas organização lógica."
+            ]
         },
+
         "identity": {
             "mandatory": ["type","spec_version","id","created","modified","name","identity_class"],
-            "optional": ["description","roles","sectors","confidence"]
+            "optional": [
+                "description",
+                "roles",
+                "sectors",
+                "confidence",
+                "\n\n__HELP__\nIdentity representa pessoas, organizações ou setores.\n\nRelações comuns:\n• Threat Actor → targets → Identity\n• Campaign → targets → Identity\n\nExemplo:\nCampaign → targets → Empresa Financeira"
+            ]
         },
+
         "indicator": {
             "mandatory": [
                 "type", "spec_version", "id", "created", "modified",
@@ -304,7 +324,8 @@ STIX_OBJECTS = {
                 "description",
                 "labels",
                 "confidence",
-                "valid_until"
+                "valid_until",
+                "\n\n__HELP__\nIndicator representa IOCs usados para deteção.\n\nRelações comuns:\n• Indicator → indicates → Malware\n• Indicator → indicates → Attack Pattern\n• Indicator → based-on → Observed Data\n\nExemplo:\nIndicator (hash) → indicates → Malware"
             ]
         },
 
@@ -319,9 +340,11 @@ STIX_OBJECTS = {
                 "first_seen",
                 "last_seen",
                 "confidence",
-                "labels"
+                "labels",
+                "\n\n__HELP__\nInfrastructure representa recursos técnicos usados em ataques (C2, domínios, VPS).\n\nRelações comuns:\n• Threat Actor → uses → Infrastructure\n• Malware → communicates-with → Infrastructure"
             ]
         },
+
         "intrusion-set": {
             "mandatory": [
                 "type", "spec_version", "id", "created", "modified",
@@ -336,14 +359,24 @@ STIX_OBJECTS = {
                 "primary_motivation",
                 "secondary_motivations",
                 "aliases",
-                "labels"
+                "labels",
+                "\n\n__HELP__\nIntrusion Set representa um conjunto consistente de ataques (ex: APT).\n\nRelações comuns:\n• Intrusion Set → uses → Attack Pattern\n• Intrusion Set → uses → Malware\n• Intrusion Set → attributed-to → Threat Actor"
             ]
         },
-        
+
         "location": {
             "mandatory": ["type","spec_version","id","created","modified"],
-            "optional": ["description","country","region","city","latitude","longitude"]
+            "optional": [
+                "description",
+                "country",
+                "region",
+                "city",
+                "latitude",
+                "longitude",
+                "\n\n__HELP__\nLocation representa uma localização geográfica relevante como alvo ou origem.\n\nRelações comuns:\n• Campaign → targets → Location\n• Threat Actor → targets → Location"
+            ]
         },
+
         "malware": {
             "mandatory": [
                 "type", "spec_version", "id", "created", "modified",
@@ -357,26 +390,44 @@ STIX_OBJECTS = {
                 "last_seen",
                 "capabilities",
                 "confidence",
-                "labels"
+                "labels",
+                "\n\n__HELP__\nMalware representa software malicioso ou família.\n\nRelações comuns:\n• Threat Actor → uses → Malware\n• Malware → uses → Tool\n• Indicator → indicates → Malware"
             ]
         },
 
         "malware-analysis": {
             "mandatory": ["type","spec_version","id","created","modified","product"],
-            "optional": ["result","confidence"]
+            "optional": [
+                "result",
+                "confidence",
+                "\n\n__HELP__\nMalware Analysis contém resultados técnicos da análise de malware.\n\nRelação comum:\n• Malware Analysis → analyzes → Malware"
+            ]
         },
+
         "note": {
             "mandatory": ["type","spec_version","id","created","modified","content","object_refs"],
-            "optional": ["confidence"]
+            "optional": [
+                "confidence",
+                "\n\n__HELP__\nNote permite adicionar observações humanas, conclusões ou comentários analíticos."
+            ]
         },
+
         "observed-data": {
             "mandatory": ["type","spec_version","id","created","modified","first_observed","last_observed","number_observed"],
-            "optional": ["object_refs"]
+            "optional": [
+                "object_refs",
+                "\n\n__HELP__\nObserved Data representa dados recolhidos diretamente de sistemas ou sensores.\n\nRelações comuns:\n• Indicator → based-on → Observed Data"
+            ]
         },
+
         "opinion": {
             "mandatory": ["type","spec_version","id","created","modified","opinion","object_refs"],
-            "optional": ["confidence"]
+            "optional": [
+                "confidence",
+                "\n\n__HELP__\nOpinion expressa uma avaliação analítica ou grau de confiança sobre outros objetos STIX."
+            ]
         },
+
         "report": {
             "mandatory": [
                 "type", "spec_version", "id", "created", "modified",
@@ -386,10 +437,12 @@ STIX_OBJECTS = {
                 "description",
                 "report_types",
                 "confidence",
-                "labels"
+                "labels",
+                "\n\n__HELP__\nReport agrega múltiplos objetos STIX num relatório final de inteligência, incidente ou análise forense."
             ]
         },
-         "threat-actor": {
+
+        "threat-actor": {
             "mandatory": [
                 "type", "spec_version", "id", "created", "modified",
                 "name", "threat_actor_types"
@@ -403,9 +456,11 @@ STIX_OBJECTS = {
                 "primary_motivation",
                 "secondary_motivations",
                 "confidence",
-                "labels"
+                "labels",
+                "\n\n__HELP__\nThreat Actor representa o adversário.\n\nRelações comuns:\n• Threat Actor → uses → Tool\n• Threat Actor → uses → Malware\n• Threat Actor → attributed-to → Campaign\n• Threat Actor → targets → Identity / Infrastructure"
             ]
         },
+
         "tool": {
             "mandatory": [
                 "type", "spec_version", "id", "created", "modified",
@@ -416,7 +471,8 @@ STIX_OBJECTS = {
                 "tool_types",
                 "aliases",
                 "confidence",
-                "labels"
+                "labels",
+                "\n\n__HELP__\nTool representa software usado em ataques ou defesa.\n\nRelações comuns:\n• Threat Actor → uses → Tool\n• Malware → uses → Tool"
             ]
         },
 
@@ -428,7 +484,8 @@ STIX_OBJECTS = {
             "optional": [
                 "description",
                 "confidence",
-                "labels"
+                "labels",
+                "\n\n__HELP__\nVulnerability representa uma falha explorável (ex: CVE).\n\nRelações comuns:\n• Attack Pattern → exploits → Vulnerability\n• Malware → exploits → Vulnerability"
             ]
         }
     },
@@ -474,6 +531,9 @@ bundle = {
 # UI actions
 # =========================
 
+def is_help_field(field: str) -> bool:
+    return field.strip().startswith("__HELP__")
+
 def gen_empty_observed_data():
     now_ts = now()
     return {
@@ -514,11 +574,19 @@ def clear_fields():
 
 def build_full_template(category: str, obj_type: str):
     fields = STIX_OBJECTS[category][obj_type]
-    all_fields = fields["mandatory"] + fields["optional"]  # opcionais também no “obrigatório” (JSON completo)
+
+    real_optional_fields = [
+        f for f in fields["optional"]
+        if not is_help_field(f)
+    ]
+
+    all_fields = fields["mandatory"] + real_optional_fields
+
     obj = {}
     for f in all_fields:
         obj[f] = default_value(f, obj_type)
-    return obj, fields["optional"]
+
+    return obj, fields["optional"]  # DEVOLVE opcionais completos (com HELP)
 
 def show_templates(*_):
     global current_observed_data
