@@ -207,6 +207,6 @@ This project is **open-source** and may be reused for teaching and learning purp
 **Bruno Cardoso + LLM 🙂**  \
 C-Academy | Curso PMD#1
 
-- LinkedIn: https://www.linkedin.com/in/brunocardoso-cybersecurity/
+- LinkedIn: https://www.linkedin.com/in/bcardoso-ctksystems/
 - GitHub: https://github.com/brunomac69
 
