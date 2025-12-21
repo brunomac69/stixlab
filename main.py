@@ -1,6 +1,10 @@
+import warnings
+# Silenciar SyntaxWarnings 
+# Deve ser feito ANTES de importar stix2validator
+warnings.filterwarnings("ignore", category=SyntaxWarning)
 import webbrowser
 import customtkinter as ctk
-from stix2validator import validate_instance,  validate_string
+from stix2validator import validate_instance, validate_string
 from tkinter import StringVar, messagebox, filedialog
 from datetime import datetime, timezone
 import uuid
